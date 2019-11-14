@@ -2,6 +2,109 @@
   remote_user: vagrant
   become: yes
   tasks:
-    - name: Ajustando Timezone
+    - name: Ajustando o Timezone do Servidor 
       timezone:
         name: America/Sao_Paulo
+ 
+
+#CONTROLLER
+- hosts: controllers
+  remote_user: vagrant
+  become: yes
+  tasks:
+    - name: Criando o Arquivo Info
+      lineinfile:
+        path: /tmp/info
+        line: SERVIDOR ANSIBLE CONTROLLER
+        create: yes
+
+#DATABASE
+- hosts: database
+  remote_user: vagrant
+  become: yes
+  tasks:
+    - name: Criando o Arquivo Info
+      lineinfile:
+        path: /tmp/info
+        line: SERVIDOR DE BANCO DE DADOS MYSQL
+        create: yes
+        
+    - name: Definindo a Senha de Administrador do MySQL
+      debconf: name='mysql-server' question='mysql-server/root_password' value='123' vtype='password'
+
+    - name: Confirmando a Senha de Administrador do MySQL
+      debconf: name='mysql-server' question='mysql-server/root_password_again' value='123' vtype='password'
+        
+    - name: Instalacao do MYSQL servidor banco de dados
+      apt: 
+        state: present 
+        update_cache: yes
+        pkg:
+          - mysql-server
+          - python-pymysql
+          
+    - name: Criando a Base de Dados
+      mysql_db:
+        name: wordpress
+        state: present
+        login_user: root
+        login_password: 123
+
+    - name: Criando o usuario do Banco
+      mysql_user:
+        name: wordpress
+        password: impacta
+        priv: '*.*:ALL'
+        state: present
+        host: 172.17.177.22
+        login_user: root
+        login_password: 123
+
+    - name: Liberando o MySQL para Conexoes Remotas
+      lineinfile:
+        path: /etc/mysql/mysql.conf.d/mysqld.cnf
+        regexp: '^bind-address'
+        line: bind-address  =  0.0.0.0
+      notify:
+        - restart-mysql        
+
+#WEBSERVERS
+- hosts: webservers
+  remote_user: vagrant
+  become: yes
+  tasks:
+    - name: Criando o Arquivo Info
+      lineinfile:
+        path: /tmp/info
+        line: SERVIDOR DO BLOG WORDPRESS
+        create: yes
+        
+    - name: Instalacao do Apache e PHP
+      apt: 
+        state: present 
+        update_cache: yes
+        pkg:
+          - apache2
+          - php-curl
+          - php-gd
+          - php-mbstring
+          - php-xml
+          - php-xmlrpc
+          - php-soap
+          - php-intl
+          - php-zip
+          - php 
+          - libapache2-mod-php 
+          - php-mysql
+          - php-cli
+ 
+  handlers:
+    - name: restart apache
+      service:
+        name: apache2
+        state: restarted
+
+    - name: restart mysql
+      service:
+        name: mysql
+        state: restarted
